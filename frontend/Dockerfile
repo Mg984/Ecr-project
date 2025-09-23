@@ -1,20 +1,21 @@
-# Stage 1: build
+# Stage 1: Build
 FROM node:18-alpine AS build
 WORKDIR /app
 
-# copy package files first for layer caching
+# Copy dependencies files first (for caching)
 COPY package*.json ./
 RUN npm install
 
-# copy source and build
+# Copy the rest of the frontend source
 COPY . .
+
+# Build the React app
 RUN npm run build
 
-# Stage 2: serve with nginx
+# Stage 2: Serve with Nginx
 FROM nginx:alpine
 COPY --from=build /app/build /usr/share/nginx/html
 
-# nginx config: proxy /api to backend-service (K8s service name)
 RUN cat > /etc/nginx/conf.d/default.conf <<'EOF'
 server {
   listen 80;
@@ -24,9 +25,6 @@ server {
   }
   location /api/ {
     proxy_pass http://backend-service:5000/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
   }
 }
 EOF
